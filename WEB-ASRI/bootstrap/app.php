@@ -11,7 +11,16 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        // 1. Tambahkan alias 'admin' agar sesuai dengan route yang kamu tulis
+        $middleware->alias([
+            'role' => \App\Http\Middleware\CheckRole::class,
+            'admin' => \App\Http\Middleware\RoleMiddleware::class, // Tambahkan baris ini
+        ]);
+
+        // 2. Kecualikan Webhook Midtrans
+        $middleware->validateCsrfTokens(except: [
+            '/midtrans/callback', 
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
