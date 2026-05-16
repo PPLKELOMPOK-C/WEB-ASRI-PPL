@@ -13,6 +13,7 @@ class JadwalSurveiController extends Controller
 {
     public function index(Request $request)
     {
+        // Eager loading relasi utama
         $query = JadwalSurvei::with(['pengajuanSewa.user', 'pengajuanSewa.unit', 'user']);
 
         if ($request->filled('status')) {
@@ -22,7 +23,7 @@ class JadwalSurveiController extends Controller
             $query->whereDate('tanggal_survei', $request->tanggal);
         }
 
-        // Slot waktu hari ini yang terisi
+        // Ambil jadwal hari ini yang terkonfirmasi dengan pengamanan eager loading relasi
         $jadwalHariIni = JadwalSurvei::whereDate('tanggal_survei', today())
             ->where('status', 'dikonfirmasi')
             ->with(['pengajuanSewa.user', 'pengajuanSewa.unit'])
@@ -42,7 +43,7 @@ class JadwalSurveiController extends Controller
             return back()->with('error', 'Jadwal ini tidak dalam status pending.');
         }
 
-        // Cek bentrok dengan jadwal lain di waktu yang sama
+        // Proteksi bentrok jadwal (toleransi selisih 30 menit)
         $bentrok = JadwalSurvei::where('id', '!=', $id)
             ->where('status', 'dikonfirmasi')
             ->whereBetween('tanggal_survei', [
@@ -57,20 +58,24 @@ class JadwalSurveiController extends Controller
 
         $jadwal->update(['status' => 'dikonfirmasi']);
 
-        Notifikasi::create([
-            'user_id' => $jadwal->pengajuanSewa->user_id,
-            'judul'   => '📅 Jadwal Survei Dikonfirmasi',
-            'pesan'   => "Jadwal survei unit {$jadwal->pengajuanSewa->unit->nama_unit} pada " .
-                Carbon::parse($jadwal->tanggal_survei)->format('d M Y, H:i') . " telah dikonfirmasi.",
-            'tipe'    => 'success',
-        ]);
+        // Kirim notifikasi hanya jika data pengajuanSewa dan user tersedia
+        if ($jadwal->pengajuanSewa && $jadwal->pengajuanSewa->user_id) {
+            $namaUnit = $jadwal->pengajuanSewa->unit?->nama_unit ?? 'Rusun';
+            Notifikasi::create([
+                'user_id' => $jadwal->pengajuanSewa->user_id,
+                'judul'   => '📅 Jadwal Survei Dikonfirmasi',
+                'pesan'   => "Jadwal survei unit {$namaUnit} pada " .
+                    Carbon::parse($jadwal->tanggal_survei)->format('d M Y, H:i') . " telah dikonfirmasi.",
+                'tipe'    => 'success',
+            ]);
+        }
 
         return back()->with('success', 'Jadwal survei berhasil dikonfirmasi.');
     }
 
     public function selesai($id)
     {
-        $jadwal = JadwalSurvei::with('pengajuanSewa.user')->findOrFail($id);
+        $jadwal = JadwalSurvei::findOrFail($id);
         $jadwal->update(['status' => 'selesai']);
 
         return back()->with('success', 'Survei ditandai selesai.');
@@ -86,29 +91,33 @@ class JadwalSurveiController extends Controller
             'catatan' => $request->catatan,
         ]);
 
-        // Kembalikan status pengajuan ke verifikasi_dokumen agar bisa reschedule
-        $jadwal->pengajuanSewa->update(['status' => 'verifikasi_dokumen']);
+        // Kembalikan status alur sewa ke verifikasi_dokumen agar user bisa reschedule
+        if ($jadwal->pengajuanSewa) {
+            $jadwal->pengajuanSewa->update(['status' => 'verifikasi_dokumen']);
+        }
 
-        Notifikasi::create([
-            'user_id' => $jadwal->user_id,
-            'judul'   => 'Jadwal Survei Dibatalkan',
-            'pesan'   => "Jadwal survei Anda dibatalkan. Silakan hubungi admin untuk reschedule." . ($request->catatan ? " Alasan: {$request->catatan}" : ''),
-            'tipe'    => 'warning',
-        ]);
+        // Tentukan target user_id penerima notifikasi secara adaptif
+        $targetUserId = $jadwal->user_id ?? ($jadwal->pengajuanSewa?->user_id ?? null);
+
+        if ($targetUserId) {
+            Notifikasi::create([
+                'user_id' => $targetUserId,
+                'judul'   => 'Jadwal Survei Dibatalkan',
+                'pesan'   => "Jadwal survei Anda dibatalkan. Silakan hubungi admin untuk reschedule." . ($request->catatan ? " Alasan: {$request->catatan}" : ''),
+                'tipe'    => 'warning',
+            ]);
+        }
 
         return back()->with('success', 'Jadwal survei dibatalkan.');
     }
 
-    /**
-     * Ambil slot waktu tersedia untuk sebuah tanggal
-     */
     public function getAvailableSlots(Request $request)
     {
         $request->validate(['tanggal' => 'required|date|after:today']);
 
-        $tanggal         = Carbon::parse($request->tanggal);
-        $allSlots        = ['08:00', '09:00', '10:00', '11:00', '13:00', '14:00', '15:00', '16:00'];
-        $slotsTerpakai   = JadwalSurvei::whereDate('tanggal_survei', $tanggal)
+        $tanggal        = Carbon::parse($request->tanggal);
+        $allSlots       = ['08:00', '09:00', '10:00', '11:00', '13:00', '14:00', '15:00', '16:00'];
+        $slotsTerpakai  = JadwalSurvei::whereDate('tanggal_survei', $tanggal)
             ->where('status', 'dikonfirmasi')
             ->get()
             ->map(fn($j) => Carbon::parse($j->tanggal_survei)->format('H:i'))
