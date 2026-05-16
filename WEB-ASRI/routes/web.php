@@ -118,7 +118,7 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::get('/penghuni', [DataPenghuniController::class, 'index'])->name('penghuni.index');
     Route::get('/penghuni/{id}', [DataPenghuniController::class, 'show'])->name('penghuni.show');
     Route::get('/penghuni/view/{id}/{kolom}', [DataPenghuniController::class, 'viewBerkas'])->name('penghuni.view');
-    // Download Dokumen Data Penghuni
+    // Download File Data Penghuni
     Route::get('/penghuni/download/{id}/{kolom}', 
     [DataPenghuniController::class, 'downloadDokumen'])
     ->name('penghuni.download');    Route::put('/penghuni/kick/{id}', [DataPenghuniController::class, 'kick'])->name('penghuni.kick');

@@ -71,7 +71,7 @@ class DataPenghuniController extends Controller
     }
 
     /**
-     * Function Download Dokumen Penghuni 
+     * Function Download File Dokumen Penghuni 
      */
     public function downloadDokumen($id, $jenis)
     {
