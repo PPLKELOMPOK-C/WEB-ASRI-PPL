@@ -8,11 +8,13 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\View\View;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rules\Password;
+use App\Models\User;
 
 class ProfileController extends Controller
 {
-    public function edit(Request $request): View
+    public function edit(Request $request)
     {
         return view('profile.edit', [
             'user' => $request->user(),
@@ -21,83 +23,83 @@ class ProfileController extends Controller
 
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
-        $user = $request->user();
-        
-        // 1. Validasi & Fill data name/email
-        $user->fill($request->validated());
+        $request->user()->fill($request->validated());
 
-        if ($user->isDirty('email')) {
-            $user->email_verified_at = null;
+        if ($request->user()->isDirty('email')) {
+            $request->user()->email_verified_at = null;
         }
 
-        // 2. LOGIKA HAPUS FOTO
-        if ($request->has('delete_photo')) {
-            if ($user->foto_profil) {
-                Storage::disk('public')->delete($user->foto_profil);
-                $user->foto_profil = null;
-            }
-        }
+        $request->user()->save();
 
-        // 3. LOGIKA SAVE FOTO DARI CROPPER (BASE64)
-        // Kita cek input hidden 'foto_profil_cropped' yang dikirim JS
-        if ($request->filled('foto_profil_cropped')) {
-            $base64Image = $request->foto_profil_cropped;
-
-            // Proses memisahkan metadata base64 dari data aslinya
-            // Format: data:image/jpeg;base64,/9j/4AAQSkZ...
-            if (preg_match('/^data:image\/(\w+);base64,/', $base64Image, $type)) {
-                $base64Image = substr($base64Image, strpos($base64Image, ',') + 1);
-                $type = strtolower($type[1]); // jpg, png, etc
-
-                if (!in_array($type, ['jpg', 'jpeg', 'gif', 'png'])) {
-                    return back()->with('error', 'Format gambar tidak valid.');
-                }
-
-                $imageData = base64_decode($base64Image);
-
-                if ($imageData === false) {
-                    return back()->with('error', 'Gagal memproses gambar.');
-                }
-            } else {
-                return back()->with('error', 'Data gambar tidak valid.');
-            }
-
-            // Hapus foto lama jika ada
-            if ($user->foto_profil) {
-                Storage::disk('public')->delete($user->foto_profil);
-            }
-
-            // Simpan file baru
-            $fileName = 'profile-photos/' . $user->id . '_' . time() . '.' . $type;
-            Storage::disk('public')->put($fileName, $imageData);
-            
-            // Simpan path ke database
-            $user->foto_profil = $fileName;
-        }
-
-        $user->save();
-
-        return Redirect::route('profile.edit')->with('success', 'Profil berhasil diperbarui!');
+        return Redirect::route('profile.edit')->with('status', 'profile-updated');
     }
 
-    public function destroy(Request $request): RedirectResponse
+    public function updateAvatar(Request $request)
     {
-        $request->validateWithBag('userDeletion', [
-            'password' => ['required', 'current_password'],
+        $request->validate([
+            'avatar' => ['required', 'image', 'mimes:jpeg,png,jpg', 'max:2048'],
         ]);
 
-        $user = $request->user();
+        /** @var User $user */
+        $user = Auth::user();
 
-        if ($user->foto_profil) {
-            Storage::disk('public')->delete($user->foto_profil);
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized'
+            ], 401);
         }
 
-        Auth::logout();
-        $user->delete();
+        // Hapus avatar lama jika ada
+        if ($user->avatar && Storage::disk('public')->exists($user->avatar)) {
+            Storage::disk('public')->delete($user->avatar);
+        }
 
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
+        // Simpan file baru
+        $path = $request->file('avatar')->store('avatars', 'public');
 
-        return Redirect::to('/');
+        // Update ke database
+        $user->avatar = $path;
+        $user->save();
+
+        return response()->json([
+            'success' => true,
+            'avatar_url' => asset('storage/' . $path)
+        ]);
+    }
+
+    public function destroyAvatar(Request $request)
+    {
+        /** @var User $user */
+        $user = $request->user();
+
+        if ($user && $user->avatar) {
+            Storage::disk('public')->delete($user->avatar);
+            $user->avatar = null;
+            $user->save();
+        }
+
+        return back()->with('status', 'avatar-deleted');
+    }
+
+  public function updatePassword(Request $request): RedirectResponse
+    {
+        // Custom message agar error berbahasa Indonesia yang ramah user
+        $validated = $request->validateWithBag('updatePassword', [
+            'current_password' => ['required', 'current_password'],
+            'password' => ['required', Password::defaults(), 'confirmed'],
+        ], [
+            'current_password.required' => 'Password saat ini wajib diisi!',
+            'current_password.current_password' => 'Password saat ini tidak sesuai.',
+            'password.required' => 'Password baru wajib diisi!',
+            'password.confirmed' => 'Konfirmasi password baru tidak cocok.',
+            'password.min' => 'Password baru minimal harus 8 karakter.',
+        ]);
+
+        $request->user()->update([
+            'password' => Hash::make($validated['password']),
+        ]);
+
+        return back()->with('status', 'password-updated');
     }
 }

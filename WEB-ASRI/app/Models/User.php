@@ -25,7 +25,7 @@ class User extends Authenticatable
         'role',
         'no_hp',
         'nik',
-        'foto_profil',
+        'avatar',
         'is_active',
     ];
 

@@ -31,33 +31,43 @@ class DataPenghuniController extends Controller
         return view('admin.penghuni.show', compact('penghuni'));
     }
 
-    public function downloadBerkas($id, $kolom)
+    /**
+     * Menampilkan/Preview berkas di browser
+     */
+    public function viewDokumen($id, $jenis)
     {
-        // Memanggil fungsi validasi agar tidak error
-        $this->validateKolom($kolom);
+        $this->validateKolom($jenis);
 
         $penghuni = User::findOrFail($id);
-        $doc = $penghuni->dokumens()->where('jenis_dokumen', $kolom)->first();
+        $doc = $penghuni->dokumens()->where('jenis_dokumen', $jenis)->first();
 
-        if (!$doc || !$doc->path_file) {
-            return back()->with('error', 'Data berkas tidak tersedia.');
-        }
-
-        $fullPath = storage_path('app/public/' . $doc->path_file);
-        
-        if (!file_exists($fullPath)) {
+        if (!$doc || !$doc->path_file || !Storage::disk('public')->exists($doc->path_file)) {
             return back()->with('error', 'File tidak ditemukan di server.');
         }
 
-        $extension = pathinfo($fullPath, PATHINFO_EXTENSION);
-        $fileName = $kolom . '-' . str_replace(' ', '-', strtolower($penghuni->name)) . '.' . $extension;
-        
-        return response()->download($fullPath, $fileName);
+        return response()->file(storage_path('app/public/' . $doc->path_file));
     }
 
     /**
-     * Menangani pemutusan status penghuni (Kick)
+     * Mengunduh berkas
      */
+    public function downloadDokumen($id, $jenis)
+    {
+        $this->validateKolom($jenis);
+
+        $penghuni = User::findOrFail($id);
+        $doc = $penghuni->dokumens()->where('jenis_dokumen', $jenis)->first();
+
+        if (!$doc || !$doc->path_file || !Storage::disk('public')->exists($doc->path_file)) {
+            return back()->with('error', 'Gagal mengunduh berkas.');
+        }
+
+        $extension = pathinfo($doc->path_file, PATHINFO_EXTENSION);
+        $fileName = $jenis . '-' . str_replace(' ', '-', strtolower($penghuni->name)) . '.' . $extension;
+        
+        return Storage::disk('public')->download($doc->path_file, $fileName);
+    }
+
     public function kick($id)
     {
         try {
@@ -67,13 +77,16 @@ class DataPenghuniController extends Controller
 
             // 1. Kembalikan role ke calon_penghuni
             $user->update([
-                'role' => 'calon_penghuni'
+                'role' => 'calon_penghuni',
+                'is_active' => false // Sesuai logika Lead Jauza: akses dihentikan
             ]);
 
-            // 2. Update Kontrak Sewa ke 'selesai'
-            $user->kontrakSewas()
-                 ->where('status', 'aktif')
-                 ->update(['status' => 'selesai']); 
+            // 2. Update Kontrak Sewa ke 'selesai' (jika relasi ada)
+            if (method_exists($user, 'kontrakSewas')) {
+                $user->kontrakSewas()
+                     ->where('status', 'aktif')
+                     ->update(['status' => 'selesai']); 
+            }
 
             DB::commit();
             return redirect()->route('admin.penghuni.index')
@@ -85,13 +98,10 @@ class DataPenghuniController extends Controller
         }
     }
 
-    /**
-     * FUNGSI PERBAIKAN: Menvalidasi input kolom dokumen
-     */
     private function validateKolom($kolom)
     {
-        // Daftarkan jenis_dokumen apa saja yang diperbolehkan di sini
-        $allowedColumns = ['ktp', 'kk', 'sk_kerja', 'foto_profil', 'ijazah']; 
+        // Tambahkan 'slip_gaji' agar tidak kena abort(404)
+        $allowedColumns = ['ktp', 'kk', 'sk_kerja', 'foto_profil', 'ijazah', 'slip_gaji']; 
 
         if (!in_array($kolom, $allowedColumns)) {
             abort(404, 'Jenis dokumen tidak dikenal.');

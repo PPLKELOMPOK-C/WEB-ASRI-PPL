@@ -31,7 +31,6 @@
     <div class="stat-card">
         <div class="stat-icon orange"><i class="ri-money-dollar-circle-line"></i></div>
         <div>
-            {{-- Konversi ke Juta agar tampilan rapi --}}
             @php $pendapatan = ($stats['pendapatan_bulan_ini'] ?? 0) / 1000000; @endphp
             <div class="stat-value">Rp {{ number_format($pendapatan, 1) }}jt</div>
             <div class="stat-label">Pendapatan Bulan Ini</div>
@@ -51,7 +50,6 @@
     <div class="stat-card">
         <div class="stat-icon orange"><i class="ri-bill-line"></i></div>
         <div>
-            {{-- Bagian yang tadinya Error --}}
             <div class="stat-value">{{ $stats['tagihan_belum_bayar'] ?? 0 }}</div>
             <div class="stat-label">Tagihan Belum Lunas</div>
         </div>
@@ -65,7 +63,6 @@
     </div>
 </div>
 
-{{-- Tables --}}
 <div class="grid grid-2">
     {{-- Pengajuan Terbaru --}}
     <div class="card">
@@ -93,6 +90,7 @@
                         <td>{{ $p->unit->blok ?? '-' }}{{ $p->unit->no_kamar ?? '-' }}</td>
                         <td><span class="badge badge-warning">{{ $p->status }}</span></td>
                         <td>
+                            {{-- Memakai admin. karena sudah di dalam group --}}
                             <a href="{{ route('admin.pengajuan.show', $p->id) }}" class="btn btn-secondary btn-sm">Detail</a>
                         </td>
                     </tr>
@@ -130,6 +128,7 @@
                         <td>{{ ucfirst($l->kategori) }}</td>
                         <td><span class="badge badge-danger">{{ $l->status }}</span></td>
                         <td>
+                            {{-- Memakai admin. karena sudah di dalam group --}}
                             <a href="{{ route('admin.laporan.show', $l->id) }}" class="btn btn-secondary btn-sm">Detail</a>
                         </td>
                     </tr>
@@ -141,5 +140,4 @@
         </div>
     </div>
 </div>
-
 @endsection
