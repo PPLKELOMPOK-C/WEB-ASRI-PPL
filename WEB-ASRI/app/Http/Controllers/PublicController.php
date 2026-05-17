@@ -61,7 +61,7 @@ class PublicController extends Controller
 
     public function unitDetail(Unit $unit)
     {
-        // Unit serupa di wilayah yang sama
+        // Unit serupa pada wilayah yang sama
         $unitSerupa = Unit::where('wilayah', $unit->wilayah)
             ->where('id', '!=', $unit->id)
             ->where('status', 'tersedia')
@@ -70,19 +70,38 @@ class PublicController extends Controller
 
         return view('public.unit_detail', compact('unit', 'unitSerupa'));
     }
+public function news(Request $request)
+{
+    $query = News::published();
 
-    public function news(Request $request)
-    {
-        $query = News::published();
-
-        if ($request->filled('search')) {
-            $query->where('judul', 'like', '%' . $request->search . '%');
-        }
-
-        $news = $query->orderBy('published_at', 'desc')->paginate(9)->withQueryString();
-
-        return view('public.news', compact('news'));
+    // Search: judul atau tanggal (format: dd-mm-yyyy atau yyyy-mm-dd)
+    if ($request->filled('search')) {
+        $search = $request->search;
+        $query->where(function ($q) use ($search) {
+            $q->where('judul', 'like', "%$search%")
+              ->orWhereRaw("DATE_FORMAT(published_at, '%d-%m-%Y') like ?", ["%$search%"])
+              ->orWhereRaw("DATE_FORMAT(published_at, '%Y-%m-%d') like ?", ["%$search%"]);
+        });
     }
+
+    // Filter kategori
+    if ($request->filled('kategori') && array_key_exists($request->kategori, News::KATEGORI)) {
+        $query->where('kategori', $request->kategori);
+    }
+
+    // Sort urutan
+    $sort = $request->get('sort', 'terbaru');
+    if ($sort === 'terlama') {
+        $query->orderBy('published_at', 'asc');
+    } else {
+        $query->orderBy('published_at', 'desc');
+    }
+
+    $news = $query->paginate(9)->withQueryString();
+    $kategoriList = News::KATEGORI;
+
+    return view('public.news', compact('news', 'kategoriList'));
+}
 
     public function newsDetail($slug)
     {

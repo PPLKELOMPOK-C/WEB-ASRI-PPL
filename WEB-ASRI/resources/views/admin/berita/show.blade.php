@@ -3,6 +3,39 @@
 @section('title', 'Detail Berita')
 @section('page-title', 'Preview Berita')
 
+{{-- Push style Quill snow agar format list, link, dan text style-nya ter-render sempurna --}}
+@push('styles')
+<link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+<style>
+    /* Styling khusus area konten agar mengikuti standar style berita Anda */
+    .ql-viewer {
+        font-family: inherit;
+        font-size: 16px;
+        line-height: 1.8;
+        color: #2c3e2e; /* Warna gelap kehijauan */
+    }
+    .ql-viewer p {
+        margin-bottom: 1rem;
+    }
+    .ql-viewer a {
+        color: var(--green-600, #3a7d4f);
+        text-decoration: underline;
+        font-weight: 500;
+    }
+    .ql-viewer a:hover {
+        color: var(--green-700, #2d6a3f);
+    }
+    /* Memastikan bullet points & numbered list tampil normal */
+    .ql-viewer ul, .ql-viewer ol {
+        padding-left: 24px;
+        margin-bottom: 1rem;
+    }
+    .ql-viewer li {
+        margin-bottom: 4px;
+    }
+</style>
+@endpush
+
 @section('content')
 <div style="max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px;">
     
@@ -21,7 +54,6 @@
     <div class="card" style="padding: 0; overflow: hidden;">
         {{-- Header Gambar --}}
         <div style="width: 100%; height: 400px; overflow: hidden; position: relative; background: #eee;">
-            {{-- Sesuaikan nama kolom dengan controller: gambar_cover --}}
             @if($news->gambar_cover)
                 <img src="{{ asset('storage/' . $news->gambar_cover) }}" alt="{{ $news->judul }}" 
                      style="width: 100%; height: 100%; object-fit: cover;">
@@ -34,8 +66,8 @@
             
             <div style="position: absolute; bottom: 20px; left: 20px;">
                 <span class="badge" style="background: var(--green-600); color: white; padding: 8px 15px; font-size: 14px; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">
-                    {{-- Ganti jika ada kolom kategori, jika tidak gunakan teks statis dulu --}}
-                    Berita ASRI
+                    {{-- Menampilkan kategori dinamis jika ada --}}
+                    {{ ucfirst($news->kategori ?? 'Berita ASRI') }}
                 </span>
             </div>
         </div>
@@ -59,7 +91,6 @@
                     <div style="display: flex; align-items: center; gap: 6px;">
                         <i class="ri-eye-line"></i>
                         Status: 
-                        {{-- Sesuaikan dengan kolom is_published di controller --}}
                         <span style="font-weight: bold; color: {{ $news->is_published ? 'var(--green-600)' : '#f59e0b' }}">
                             {{ $news->is_published ? 'Published' : 'Draft' }}
                         </span>
@@ -67,9 +98,9 @@
                 </div>
             </div>
 
-            {{-- Isi Berita --}}
-            <div style="line-height: 1.8; color: #333; font-size: 16px; white-space: pre-line;">
-                {!! nl2br(e($news->konten)) !!}
+            
+            <div class="ql-editor ql-viewer" style="padding: 0;">
+                {!! $news->konten !!}
             </div>
         </div>
     </div>
