@@ -3,7 +3,7 @@
 
 @section('content')
 
-{{-- Hero --}}
+{{-- hero --}}
 <div style="background:var(--green-900);padding:48px 5%;text-align:center">
     <h1 style="font-family:'Playfair Display',serif;font-size:34px;font-weight:700;color:white;margin-bottom:12px">
         Berita & Informasi

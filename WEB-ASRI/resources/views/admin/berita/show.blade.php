@@ -98,8 +98,7 @@
                 </div>
             </div>
 
-            {{-- Isi Berita yang sudah diperbaiki --}}
-            {{-- Menggunakan kombinasi class 'ql-editor' bawaan Quill dan custom class 'ql-viewer' --}}
+            
             <div class="ql-editor ql-viewer" style="padding: 0;">
                 {!! $news->konten !!}
             </div>

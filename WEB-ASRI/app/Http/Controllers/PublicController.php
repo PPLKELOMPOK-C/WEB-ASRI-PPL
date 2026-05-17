@@ -61,7 +61,7 @@ class PublicController extends Controller
 
     public function unitDetail(Unit $unit)
     {
-        // Unit serupa di wilayah yang sama
+        // Unit serupa pada wilayah yang sama
         $unitSerupa = Unit::where('wilayah', $unit->wilayah)
             ->where('id', '!=', $unit->id)
             ->where('status', 'tersedia')

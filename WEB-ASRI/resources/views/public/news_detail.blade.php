@@ -1,7 +1,7 @@
 @extends('layouts.public')
 @section('title', $article->judul . ' - ASRI')
 
-{{-- Push style Quill snow & custom view agar format dari editor ter-render sempurna --}}
+{{-- Push style Quill --}}
 @push('styles')
 <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
 <style>

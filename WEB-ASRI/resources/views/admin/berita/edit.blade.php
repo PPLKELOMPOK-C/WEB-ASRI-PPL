@@ -6,7 +6,7 @@
 @push('styles')
 <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
 <style>
-    /* Quill toolbar styling — sesuaikan warna hijau */
+    /* Quill toolbar styling  */
     .ql-toolbar.ql-snow {
         border: 1.5px solid #d1e7dd;
         border-bottom: 1px solid #d1e7dd;
